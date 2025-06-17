@@ -2,10 +2,12 @@ name: Build OpenWrt  # 工作流名称：构建 OpenWrt
 
 on:
   repository_dispatch:  # 当收到 repository_dispatch 事件时触发
+  schedule:
+    - cron: 0 3 */14 * *
   workflow_dispatch:    # 允许手动触发工作流
     inputs:
       ssh:
-        description: 'SSH 连接到 Actions'
+        description: 'SSH connection to Actions'
         required: false
         default: 'false'
 
@@ -223,7 +225,7 @@ jobs:
         echo "::warning file=wetransfer.com::$(cat wetransfer.log | grep https)"
         echo "url=$(cat wetransfer.log | grep https | cut -f3 -d" ")" >> $GITHUB_OUTPUT
 
-    - name: Generate release tag  # 生成发布标签
+    - name: Generate release tag
       id: tag
       if: env.UPLOAD_RELEASE == 'true' && !cancelled()
       run: |
@@ -233,28 +235,43 @@ jobs:
         [ $UPLOAD_WETRANSFER = true ] && echo "🔗 [WeTransfer](${{ steps.wetransfer.outputs.url }})" >> release.txt
         echo "status=success" >> $GITHUB_OUTPUT
 
-    - name: Upload firmware to release  # 上传固件到发布
-      uses: softprops/action-gh-release@v1
+    - name: Upload firmware to release
+      uses: ncipollo/release-action@v1
       if: steps.tag.outputs.status == 'success' && !cancelled()
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ steps.tag.outputs.release_tag }}
-        body_path: release.txt
-        files: ${{ env.FIRMWARE }}/*
+        allowUpdates: true
+        token: ${{ secrets.GITHUB_TOKEN }}
+        name: AES Test XiaoMi AX3000T ${{ steps.tag.outputs.release_tag }}
+        tag: ${{ steps.tag.outputs.release_tag }}
+        artifacts: ${{ env.FIRMWARE }}/*
+        body: |
+          **This is OpenWrt Firmware for XiaoMi AX3000T**
+          ### 📒 固件信息:
+          - 💻 平臺架構: mediatek-filogic
+          - ⚽ 固件源碼: ${{ env.REPO_URL }}
+          - 💝 源碼分支: ${{ env.REPO_BRANCH }}
+          - 🚀 内核版本: ${{ env.KERNEL }}
+          - 🌐 默認地址: 192.168.11.1
+          - 🔑 默認密碼: password
+          ### 🧊 固件版本
+          - 固件編譯前最後一次➦[主要源碼](${{ env.REPO_URL }})更新记录
+          - ${{ env.COMMIT_AUTHOR }}
+          - ${{ env.COMMIT_DATE }}
+          - ${{ env.COMMIT_MESSAGE }}
+          - ${{ env.COMMIT_HASH }}
 
-    - name: Delete workflow runs  # 删除工作流运行
-      uses: GitRML/delete-workflow-runs@main
-      with:
-        retain_days: 1
-        keep_minimum_runs: 3
+    # - name: Delete workflow runs  # 删除工作流运行
+    #   uses: GitRML/delete-workflow-runs@main
+    #   with:
+    #     retain_days: 1
+    #     keep_minimum_runs: 3
 
-    - name: Remove old Releases  # 删除旧的发布版本
-      uses: dev-drprasad/delete-older-releases@v0.1.0
-      if: env.UPLOAD_RELEASE == 'true' && !cancelled()
-      with:
-        keep_latest: 3
-        delete_tags: true
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    # - name: Remove old Releases  # 删除旧的发布版本
+    #   uses: dev-drprasad/delete-older-releases@v0.1.0
+    #   i#f: env.UPLOAD_RELEASE == 'true' && !cancelled()
+    #   with:
+    #     keep_latest: 3
+    #     delete_tags: true
+    #   env:
+    #     GITHUB_TOKEN: $#{{ secrets.GITHUB_TOKEN }}
         
